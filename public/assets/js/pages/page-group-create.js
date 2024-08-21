@@ -1,145 +1,145 @@
-class GroupForm {
+class GroupCreatePage {
     constructor() {
-        this.elements = {
-            form: {
-                create: $('#form-create-group')
-            },
-            group: {
-                image:       $('.group-image'),
-                name:        $('.group-name'),
-                category:    $('.group-category-name'),
-                description: $('.group-description')
-            },
-            input: {
-                name:        $('#name'),
-                link:        $('#link'),
-                description: $('#description'),
-                id_category: $('#id_category') 
-            },
-            warning:   $('#warning-create-group'),
-            btnSubmit: $('#btn-submit'),
-            loading:   $('#loading'),
-            btnText:   $('#text')
-        };
+        this.cacheElements();
         this.isLinkValid = false;
-        this.setupEventHandlers();
+        this.bindEvents();
+    }
+
+    cacheElements() {
+        this.elements = {
+            form: $('#form-create-group'),
+            groupImage: $('.group-image'),
+            groupName: $('.group-name'),
+            groupCategory: $('.group-category-name'),
+            groupDescription: $('.group-description'),
+            inputName: $('#name'),
+            inputLink: $('#link'),
+            inputDescription: $('#description'),
+            inputCategory: $('#id_category'),
+            warning: $('#warning-create-group'),
+            btnSubmit: $('#btn-submit'),
+            loading: $('#loading'),
+            btnText: $('#text')
+        };
     }
 
     sanitizeLinkGroup(link) {
-        return link.replace("https://chat.whatsapp.com/", '') || link;
+        return link.split('/').filter(Boolean).pop();
     }
 
-    enableButton(status) {
-        this.elements.btnSubmit.prop('disabled', !status);
-        if (!status) {
-            this.elements.btnText.addClass("d-none");
-            this.elements.loading.removeClass("d-none");
-        } else {
-            this.elements.btnText.removeClass("d-none");
-            this.elements.loading.addClass("d-none");
-        }
+    toggleButtonLoading(isLoading) {
+        this.elements.btnSubmit.prop('disabled', isLoading);
+        this.elements.btnText.toggleClass("d-none", isLoading);
+        this.elements.loading.toggleClass("d-none", !isLoading);
     }
 
     showAlert(message, status) {
-        setAlert({
+        openAlert({
             element: this.elements.warning,
             message: message,
-            color: (status === 'success' ? 'success' : 'warning')
+            color: status === 'success' ? 'success' : 'warning'
         });
     }
 
-    setGroupDataInElements({ name, image }) {
-        this.elements.group.image.attr('src', image);
-        this.elements.group.name.text(name);
-        this.elements.input.name.val(name);
-
-        this.elements.input.id_category.val(1).change();
+    updateGroupUI({ name, image }) {
+        this.elements.groupImage.attr('src', image);
+        this.elements.groupName.text(name);
+        this.elements.inputName.val(name);
+        this.elements.inputCategory.val(1).change();
     }
 
-    validateLinkGroup = async ({ link }) => {
+    async validateLinkGroup(inviteLink) {
+        this.toggleButtonLoading(true);
 
-        const response = await sendRequestToAPI('GET', `api/group/validate-link/${link}`);
-        const { status = 'error', group = null } = response.data;
+        const response = await sendRequest('GET', `/api/group/validate/${inviteLink}`);
+        const { status = 'error', group = null, message = 'Link de convite inválido ou expirado' } = response;
 
-        this.enableButton(true);
+        this.toggleButtonLoading(false);
 
         if (status !== "success") {
-            this.showAlert(response.data.message, status);
+            this.resetForm()
+            this.showAlert(message, status);
             return;
         }
 
-        this.setGroupDataInElements(group);
+        this.updateGroupUI(group);
         this.isLinkValid = true;
 
         $('#first-step').addClass('d-none');
         $('#second-step').removeClass('d-none');
-        this.elements.btnSubmit.find("#text").text("Enviar Grupo");
+        this.elements.btnText.text("Enviar Grupo");
     }
 
-    createGroup = async (data) => {
-        const response = await sendRequestToAPI('POST', 'api/group', data);
-        const { status = 'error' } = response.data;
+    async createGroup(data) {
+        this.toggleButtonLoading(true);
 
-        this.enableButton(true);
+        const response = await sendRequest('POST', '/api/group', data);
+        const { status = 'error' } = response;
 
-        const message = (status === 'success' ? "Grupo cadastrado com sucesso!" : response.data.message);
+        this.toggleButtonLoading(false);
+
+        const message = status === 'success' ? "Grupo cadastrado com sucesso!" : response.message;
         this.showAlert(message, status);
 
-        if (status !== 'success') {
+        if (status === 'success') {
+            this.resetForm();
+        }
+    }
+
+    resetForm() {
+        this.isLinkValid = false;
+        grecaptcha.reset();
+        $('#first-step').removeClass('d-none');
+        $('#second-step').addClass('d-none');
+        this.elements.inputLink.val('');
+    }
+
+    bindEvents() {
+        this.elements.form.on('submit', (e) => this.handleSubmit(e));
+        this.elements.inputCategory.on('change', () => this.handleCategoryChange());
+        this.elements.inputName.on('keyup', () => this.updateGroupName());
+        this.elements.inputDescription.on('keyup', () => this.updateGroupDescription());
+    }
+
+    handleSubmit(e) {
+        e.preventDefault();
+
+        const formData = {
+            invite_link: this.sanitizeLinkGroup(this.elements.inputLink.val()),
+            category_id: this.elements.inputCategory.val(),
+            name: this.elements.inputName.val(),
+            description: this.elements.inputDescription.val() || "",
+            recaptchaResponse: grecaptcha.getResponse()
+        };
+
+        if (!this.isLinkValid) {
+            this.validateLinkGroup(formData.invite_link);
             return;
         }
 
-        this.isLinkValid = false;
-        grecaptcha.reset();
+        if (!formData.recaptchaResponse) {
+            this.showAlert("Por favor, complete o reCAPTCHA", 'warning');
+            this.toggleButtonLoading(false);
+            return;
+        }
 
-        $('#first-step').removeClass('d-none');
-        $('#second-step').addClass('d-none');
+        this.createGroup(formData);
     }
 
-    setupEventHandlers() {
-        this.elements.form.create.on('submit', (e) => {
-            e.preventDefault();
+    handleCategoryChange() {
+        const nameSelected = this.elements.inputCategory.find('option:selected').text();
+        this.elements.groupCategory.text(nameSelected);
+    }
 
-            const formData = {
-                link:        this.sanitizeLinkGroup(this.elements.input.link.val()),
-                id_category: this.elements.input.id_category.find(":selected").val(),
-                name:        this.elements.input.name.val(),
-                description: this.elements.input.description.val() || "",
-                recaptchaResponse: grecaptcha.getResponse()
-            }
+    updateGroupName() {
+        this.elements.groupName.text(this.elements.inputName.val());
+    }
 
-            this.enableButton(false);
-
-            if (!this.isLinkValid) {
-                this.validateLinkGroup(formData);
-                return;
-            }
-
-            if (formData.recaptchaResponse === "") {
-                this.showAlert("Por favor, complete o reCAPTCHA");
-                this.enableButton(true);
-                return;
-            }
-
-            this.createGroup(formData);
-        });
-
-        this.elements.input.id_category.on('change', () => {
-            const nameSelected = this.elements.input.id_category.find('option:selected').text();
-            this.elements.group.category.text(nameSelected);
-        });
-
-        this.elements.input.name.on('keyup', () => {
-            const name = this.elements.input.name.val();
-            this.elements.group.name.text(name);
-        });
-
-        this.elements.input.description.on('keyup', () => {
-            const description = this.elements.input.description.val();
-            this.elements.group.description.text(description);
-        });
+    updateGroupDescription() {
+        this.elements.groupDescription.text(this.elements.inputDescription.val());
     }
 }
 
-// Instantiate the GroupForm class
-const GroupPage = new GroupForm();
+$(document).ready(() => {
+    new GroupCreatePage();
+});

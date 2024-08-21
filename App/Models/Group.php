@@ -2,32 +2,26 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
 class Group extends Model
 {
-    public function __construct()
+    use HasFactory;
+
+    // Adicione os campos que podem ser preenchidos em massa
+    protected $fillable = [
+        'name',
+        'invite_link',
+        'image',
+        'category_id',
+        'description',
+        'uri'
+        // Adicione aqui outros campos relevantes
+    ];
+
+    public function category()
     {
-        parent::__construct(tableName: "groups", primaryKey: "id", timestamps: true);
+        return $this->belongsTo(Category::class, 'category_id');
     }
-
-    public function countGroupsInCategory(int $categoryId)
-    {
-        return $this->find("visible = 1, id_category = {$categoryId}")->count('id');
-    }
-
-    public function findAllByCategoryName(string $name)
-    {
-        $category = (new Category)->find("name = {$name}")->select(false, 'id');
-
-        if (!isset($category->id)) {
-            return [];
-        }
-
-        return $this->find("visible = 1, id_category = {$category->id}")->orderBy(['created_at' => "DESC"])->select(true) ?: [];
-    }
-
-    public function findAll()
-    {
-        return $this->find("visible = 1")->orderBy(['updated_at' => "DESC"])->select(true) ?: [];
-    }
-
 }

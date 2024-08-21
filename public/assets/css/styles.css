@@ -17,6 +17,12 @@ body {
 .card-group img {
     width: 100%;
     transition: 0.3s all ease-in-out;
+    height: 170px; object-fit: cover;
+}
+
+.card-group .category-name {
+    position: absolute; margin-top: -25px; left: 10px;
+    text-decoration: none;
 }
 
 .card-group:hover img {

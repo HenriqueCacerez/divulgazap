@@ -2,10 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
 class Category extends Model
 {
-    public function __construct()
+    use HasFactory;
+
+    // public function groups() {
+    //     return $this->belongsToMany('App\Models\Groups');
+    // }
+
+    public function groups()
     {
-        parent::__construct(tableName: "categories", primaryKey: "id", timestamps: true);
+        return $this->hasMany(Group::class, 'category_id');
     }
 }

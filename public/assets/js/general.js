@@ -1,21 +1,22 @@
-const sendRequestToAPI = async (typeRequest, endpoint, data = null) => {
+const sendRequest = async (method, endpoint, body = null) => {
     try {
-        const response = await fetch(`/${endpoint}`, {
-            method:     typeRequest,
-            body:       data ? JSON.stringify({ data: data }) : null,
-            headers: { 
-                'Content-Type':     'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-
-       return response.json() ?? false;
+        body = body ? JSON.stringify(body) : null;
+        
+        let headers = {
+            'Content-Type':     'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    
+        const response = await fetch(endpoint, { method, body, headers });
+    
+        return response.json();
+        
     } catch (error) {
-        return false;
-    } 
+        return error;
+    }
 }
 
-const setAlert = ({ element, message, color, closeInSeconds = false }) => {
+const openAlert = ({ element, message, color, closeInSeconds = false }) => {
 
     closeAlert( element );
 
